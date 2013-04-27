@@ -60,6 +60,7 @@ static struct xkb_keymap *xkb_keymap;
 
 cairo_surface_t *img = NULL;
 bool tile = false;
+bool show_time = true;
 
 /* isutf, u8_dec © 2005 Jeff Bezanson, public domain */
 #define isutf(c) (((c) & 0xC0) != 0x80)
@@ -582,12 +583,15 @@ int main(int argc, char *argv[]) {
                 errx(1, "i3lock: Invalid pointer type given. Expected one of \"win\" or \"default\".\n");
             }
             break;
+        case 'h':
+            show_time = false;
+            break;
         case 0:
             if (strcmp(longopts[optind].name, "debug") == 0)
                 debug_mode = true;
             break;
         default:
-            errx(1, "Syntax: i3lock [-v] [-n] [-b] [-d] [-c color] [-u] [-p win|default]"
+            errx(1, "Syntax: i3lock [-v] [-n] [-b] [-d] [-c color] [-u] [-p win|default] [-h]"
             " [-i image.png] [-t]"
             );
         }
@@ -698,6 +702,11 @@ int main(int argc, char *argv[]) {
     /* Invoke the event callback once to catch all the events which were
      * received up until now. ev will only pick up new events (when the X11
      * file descriptor becomes readable). */
+
     ev_invoke(main_loop, xcb_check, 0);
+
+    if(show_time)
+        start_time_redraw_tick();
+
     ev_loop(main_loop, 0);
 }

@@ -13,6 +13,7 @@
 #include <ev.h>
 #include <cairo.h>
 #include <cairo/cairo-xcb.h>
+#include <time.h>
 
 #include "xcb.h"
 #include "unlock_indicator.h"
@@ -51,11 +52,14 @@ extern bool tile;
 /* The background color to use (in hex). */
 extern char color[7];
 
+extern bool show_time;
+
 /*******************************************************************************
  * Local variables.
  ******************************************************************************/
 
 static struct ev_timer *clear_indicator_timeout;
+static struct ev_periodic *time_redraw_tick;
 
 /* Cache the screen’s visual, necessary for creating a Cairo context. */
 static xcb_visualtype_t *vistype;
@@ -70,6 +74,7 @@ pam_state_t pam_state;
  * resolution and returns it.
  *
  */
+
 xcb_pixmap_t draw_image(uint32_t *resolution) {
     xcb_pixmap_t bg_pixmap = XCB_NONE;
 
@@ -111,7 +116,13 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
         cairo_fill(xcb_ctx);
     }
 
-    if (unlock_state >= STATE_KEY_PRESSED && unlock_indicator) {
+    /* Generate time strcut */
+    time_t rawtime;
+    struct tm* timeinfo;
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    if (true) { //(unlock_state >= STATE_KEY_PRESSED && unlock_indicator) {
         /* Draw a (centered) circle with transparent background. */
         cairo_set_line_width(ctx, 10.0);
         cairo_arc(ctx,
@@ -131,7 +142,7 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
                 cairo_set_source_rgba(ctx, 250.0/255, 0, 0, 0.75);
                 break;
             default:
-                cairo_set_source_rgba(ctx, 0, 0, 0, 0.75);
+                cairo_set_source_rgba(ctx, 100.0/255, 100.0/255, 100.0/255, 0.75);
                 break;
         }
         cairo_fill_preserve(ctx);
@@ -149,29 +160,27 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
         }
         cairo_stroke(ctx);
 
-        /* Draw an inner seperator line. */
-        cairo_set_source_rgb(ctx, 0, 0, 0);
-        cairo_set_line_width(ctx, 2.0);
-        cairo_arc(ctx,
-                  BUTTON_CENTER /* x */,
-                  BUTTON_CENTER /* y */,
-                  BUTTON_RADIUS - 5 /* radius */,
-                  0,
-                  2 * M_PI);
-        cairo_stroke(ctx);
-
-        cairo_set_line_width(ctx, 10.0);
-
         /* Display a (centered) text of the current PAM state. */
         char *text = NULL;
+        char *date = NULL;
+        char time_text [40];
+        char date_text [40];
+
         switch (pam_state) {
             case STATE_PAM_VERIFY:
-                text = "verifying…";
+                text = "wait for it…";
                 break;
             case STATE_PAM_WRONG:
-                text = "wrong!";
+                text = "Nope.";
                 break;
             default:
+
+                if(show_time) {
+                    strftime(time_text,40,"%R",timeinfo);
+                    strftime(date_text,40,"%a %m. %b",timeinfo);
+                    text = time_text;
+                    date = date_text;
+                }
                 break;
         }
 
@@ -184,10 +193,28 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
 
             cairo_text_extents(ctx, text, &extents);
             x = BUTTON_CENTER - ((extents.width / 2) + extents.x_bearing);
-            y = BUTTON_CENTER - ((extents.height / 2) + extents.y_bearing);
+            if(date)
+                y = BUTTON_CENTER - ((extents.height / 2) + extents.y_bearing) - 6;
+            else
+                y = BUTTON_CENTER - ((extents.height / 2) + extents.y_bearing);
 
             cairo_move_to(ctx, x, y);
             cairo_show_text(ctx, text);
+            cairo_close_path(ctx);
+        }
+        if (date) {
+            cairo_text_extents_t extents;
+            double x, y;
+
+            cairo_set_source_rgb(ctx, 0, 0, 0);
+            cairo_set_font_size(ctx, 14.0);
+
+            cairo_text_extents(ctx, date, &extents);
+            x = BUTTON_CENTER - ((extents.width / 2) + extents.x_bearing);
+            y = BUTTON_CENTER - ((extents.height / 2) + extents.y_bearing) + 14;
+
+            cairo_move_to(ctx, x, y);
+            cairo_show_text(ctx, date);
             cairo_close_path(ctx);
         }
 
@@ -230,11 +257,91 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
                       highlight_start + (M_PI / 3.0) /* start */,
                       (highlight_start + (M_PI / 3.0)) + (M_PI / 128.0) /* end */);
             cairo_stroke(ctx);
+        } else if(show_time){
+            cairo_new_sub_path(ctx);
+            double hour_mid = ((2*M_PI)/12.0)*(timeinfo->tm_hour%12)+(2*M_PI/60.0)*(double)(timeinfo->tm_min/12)-((2*M_PI/4.0));
+            double minute_mid = ((2*M_PI)/60.0)*(timeinfo->tm_min)-((2*M_PI/4.0));
+
+            cairo_arc(ctx,
+                      BUTTON_CENTER /* x */,
+                      BUTTON_CENTER /* y */,
+                      BUTTON_RADIUS /* radius */,
+                      hour_mid - (M_PI / 32.0),
+                      hour_mid - (M_PI / 512.0));
+            
+            cairo_set_source_rgb(ctx, 219.0/255, 51.0/255, 0);
+            cairo_stroke(ctx);
+            cairo_arc(ctx,
+                      BUTTON_CENTER /* x */,
+                      BUTTON_CENTER /* y */,
+                      BUTTON_RADIUS /* radius */,
+                      hour_mid + (M_PI / 512.0),
+                      hour_mid + (M_PI / 32.0));
+
+            cairo_stroke(ctx);
+
+            cairo_arc(ctx,
+                      BUTTON_CENTER /* x */,
+                      BUTTON_CENTER /* y */,
+                      BUTTON_RADIUS /* radius */,
+                      minute_mid - (M_PI / 64.0),
+                      minute_mid - (M_PI / 512.0));
+            
+            cairo_set_source_rgb(ctx, 51.0/255, 219.0/255, 0);
+            cairo_stroke(ctx);
+            cairo_arc(ctx,
+                      BUTTON_CENTER /* x */,
+                      BUTTON_CENTER /* y */,
+                      BUTTON_RADIUS /* radius */,
+                      minute_mid + (M_PI / 512.0),
+                      minute_mid + (M_PI / 64.0));
+            
+            cairo_stroke(ctx);
+
+            /* Draw clock-face */
+            cairo_set_source_rgb(ctx, 0, 0, 0);
+            cairo_set_line_width(ctx, 2.0);
+            for(int i=0; i<12; i++) {
+                if(i%3) {
+                    cairo_arc(ctx,
+                    BUTTON_CENTER /* x */,
+                    BUTTON_CENTER /* y */,
+                    BUTTON_RADIUS + 3 /* radius */,
+                    ((M_PI*2)/12)*i - (M_PI / 256.0)/* start */,
+                    ((M_PI*2)/12)*i + (M_PI / 256.0) /* end */);
+                    cairo_stroke(ctx);
+                } else {
+                    cairo_set_line_width(ctx, 8.0);
+                    cairo_arc(ctx,
+                    BUTTON_CENTER /* x */,
+                    BUTTON_CENTER /* y */,
+                    BUTTON_RADIUS + 1 /* radius */,
+                    ((M_PI*2)/12)*i - (M_PI / 256.0)/* start */,
+                    ((M_PI*2)/12)*i + (M_PI / 256.0) /* end */);
+                    cairo_stroke(ctx);
+                    cairo_set_line_width(ctx, 4.0);
+                }
+            }
+            cairo_set_line_width(ctx, 10.0);
         }
+
+        /* Draw an inner seperator line. */
+        cairo_set_source_rgb(ctx, 0, 0, 0);
+        cairo_set_line_width(ctx, 2.0);
+        cairo_arc(ctx,
+                  BUTTON_CENTER /* x */,
+                  BUTTON_CENTER /* y */,
+                  BUTTON_RADIUS - 5 /* radius */,
+                  0,
+                  2 * M_PI);
+        cairo_stroke(ctx);
+
+        cairo_set_line_width(ctx, 10.0);
     }
 
     if (xr_screens > 0) {
         /* Composite the unlock indicator in the middle of each screen. */
+
         for (int screen = 0; screen < xr_screens; screen++) {
             int x = (xr_resolutions[screen].x + ((xr_resolutions[screen].width / 2) - (BUTTON_DIAMETER / 2)));
             int y = (xr_resolutions[screen].y + ((xr_resolutions[screen].height / 2) - (BUTTON_DIAMETER / 2)));
@@ -319,5 +426,23 @@ void stop_clear_indicator_timeout(void) {
         ev_timer_stop(main_loop, clear_indicator_timeout);
         free(clear_indicator_timeout);
         clear_indicator_timeout = NULL;
+    }
+}
+
+static void time_redraw_cb(struct ev_loop *loop, ev_periodic *w, int revents) {
+    redraw_screen();
+}
+
+void start_time_redraw_tick(void) {
+    if (time_redraw_tick) {
+        ev_periodic_set(time_redraw_tick, 1.0, 60., 0);
+        ev_periodic_again(main_loop, time_redraw_tick);
+    } else {
+        /* When there is no memory, we just don’t have a timeout. We cannot
+         * exit() here, since that would effectively unlock the screen. */
+        if (!(time_redraw_tick = calloc(sizeof(struct ev_periodic), 1)))
+            return;
+        ev_periodic_init(time_redraw_tick,time_redraw_cb, 1.0, 60., 0);
+        ev_periodic_start(main_loop, time_redraw_tick);
     }
 }
