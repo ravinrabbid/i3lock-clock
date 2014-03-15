@@ -155,7 +155,7 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
                 cairo_set_source_rgb(ctx, 125.0/255, 51.0/255, 0);
                 break;
             case STATE_PAM_IDLE:
-                cairo_set_source_rgb(ctx, 51.0/255, 125.0/255, 0);
+                cairo_set_source_rgb(ctx, 0, 229.0/255, 253.0/255);
                 break;
         }
         cairo_stroke(ctx);
@@ -177,7 +177,7 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
 
                 if(show_time) {
                     strftime(time_text,40,"%R",timeinfo);
-                    strftime(date_text,40,"%a %m. %b",timeinfo);
+                    strftime(date_text,40,"%a %d. %b",timeinfo);
                     text = time_text;
                     date = date_text;
                 }
@@ -233,7 +233,7 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
                       highlight_start + (M_PI / 3.0));
             if (unlock_state == STATE_KEY_ACTIVE) {
                 /* For normal keys, we use a lighter green. */
-                cairo_set_source_rgb(ctx, 51.0/255, 219.0/255, 0);
+                cairo_set_source_rgb(ctx, 0, 60.0/255, 172.0/255);
             } else {
                 /* For backspace, we use red. */
                 cairo_set_source_rgb(ctx, 219.0/255, 51.0/255, 0);
@@ -269,7 +269,7 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
                       hour_mid - (M_PI / 32.0),
                       hour_mid - (M_PI / 512.0));
             
-            cairo_set_source_rgb(ctx, 219.0/255, 51.0/255, 0);
+            cairo_set_source_rgb(ctx, 0, 60.0/255, 172.0/255);
             cairo_stroke(ctx);
             cairo_arc(ctx,
                       BUTTON_CENTER /* x */,
@@ -287,7 +287,7 @@ xcb_pixmap_t draw_image(uint32_t *resolution) {
                       minute_mid - (M_PI / 64.0),
                       minute_mid - (M_PI / 512.0));
             
-            cairo_set_source_rgb(ctx, 51.0/255, 219.0/255, 0);
+            cairo_set_source_rgb(ctx, 1.0/255, 3.0/255, 16.0/255);
             cairo_stroke(ctx);
             cairo_arc(ctx,
                       BUTTON_CENTER /* x */,
