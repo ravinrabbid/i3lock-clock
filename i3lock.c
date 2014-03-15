@@ -61,6 +61,7 @@ static struct ev_timer *clear_pam_wrong_timeout;
 static struct ev_timer *clear_indicator_timeout;
 extern unlock_state_t unlock_state;
 extern pam_state_t pam_state;
+bool hide = false;
 
 static struct xkb_state *xkb_state;
 static struct xkb_context *xkb_context;
@@ -645,8 +646,8 @@ int main(int argc, char *argv[]) {
     char *image_path = NULL;
     int ret;
     struct pam_conv conv = {conv_callback, NULL};
-    int curs_choice = CURS_NONE;
     int o;
+    int curs_choice = CURS_NONE;
     int optind = 0;
     struct option longopts[] = {
         {"version", no_argument, NULL, 'v'},
@@ -661,13 +662,14 @@ int main(int argc, char *argv[]) {
         {"image", required_argument, NULL, 'i'},
         {"tiling", no_argument, NULL, 't'},
         {"ignore-empty-password", no_argument, NULL, 'e'},
+        {"do not show lock-screen", no_argument, NULL, 'a'},
         {NULL, no_argument, NULL, 0}
     };
 
     if ((username = getenv("USER")) == NULL)
         errx(1, "USER environment variable not set, please set it.\n");
 
-    while ((o = getopt_long(argc, argv, "hvnbdc:p:ui:te", longopts, &optind)) != -1) {
+    while ((o = getopt_long(argc, argv, "hvnbdc:p:ui:tea", longopts, &optind)) != -1) {
         switch (o) {
         case 'v':
             errx(EXIT_SUCCESS, "version " VERSION " © 2010-2012 Michael Stapelberg");
@@ -706,14 +708,19 @@ int main(int argc, char *argv[]) {
                 curs_choice = CURS_WIN;
             } else if (!strcmp(optarg, "default")) {
                 curs_choice = CURS_DEFAULT;
+            } else if (!strcmp(optarg, "lock")) {
+                curs_choice = CURS_LOCK;
             } else {
                 errx(1, "i3lock: Invalid pointer type given. Expected one of \"win\" or \"default\".\n");
             }
             break;
-        case 'h':
-            show_time = false;
+        //case 'h':
+        //    show_time = false;
         case 'e':
             ignore_empty_password = true;
+            break;
+        case 'a' :
+            hide = true;
             break;
         case 0:
             if (strcmp(longopts[optind].name, "debug") == 0)
@@ -721,7 +728,7 @@ int main(int argc, char *argv[]) {
             break;
         default:
             errx(1, "Syntax: i3lock [-v] [-n] [-b] [-d] [-c color] [-u] [-p win|default] [-h]"
-            " [-i image.png] [-t] [-e]"
+            " [-i image.png] [-t] [-e] [-a]"
             );
         }
     }
@@ -800,7 +807,7 @@ int main(int argc, char *argv[]) {
     xcb_pixmap_t bg_pixmap = draw_image(last_resolution);
 
     /* open the fullscreen window, already with the correct pixmap in place */
-    win = open_fullscreen_window(conn, screen, color, bg_pixmap);
+    win = open_fullscreen_window(conn, screen, color, bg_pixmap, hide);
     xcb_free_pixmap(conn, bg_pixmap);
 
     pid_t pid = fork();
