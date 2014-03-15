@@ -21,5 +21,7 @@ void redraw_screen(void);
 void start_clear_indicator_timeout(void);
 void stop_clear_indicator_timeout(void);
 void start_time_redraw_timeout(void);
+void start_time_redraw_tick(struct ev_loop* main_loop);
+void clear_indicator(void);
 
 #endif
